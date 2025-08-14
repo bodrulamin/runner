@@ -1,4 +1,5 @@
-name: Deploy Runner
+name: "⚡ Deploy: ${{ github.event.client_payload.repository_name }} → ${{ github.event.client_payload.environment }} | SHA: ${{ github.event.client_payload.commit_sha }}"
+
 # This workflow is triggered by an API call from another repository.
 on:
   repository_dispatch:
@@ -7,10 +8,29 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    name: "${{ github.event.client_payload.repository_name }} → ${{ github.event.client_payload.environment }} | ${{ github.event.client_payload.app_type }} | Trigger Run #${{ github.event.client_payload.trigger_run_number }}"
     
     steps:
+      # Enhanced deployment info with links back to trigger
+      - name: "📊 Deployment Information"
+        run: |
+          echo "::notice title=🚀 Deployment Started::Repo: ${{ github.event.client_payload.repository_name }}, Environment: ${{ github.event.client_payload.environment }}, Commit: ${{ github.event.client_payload.commit_sha }}"
+          echo "=================================="
+          echo "📋 DEPLOYMENT DETAILS"
+          echo "=================================="
+          echo "🏷️  Repository: ${{ github.event.client_payload.repository }}"
+          echo "🌿 Branch: ${{ github.event.client_payload.branch }}"
+          echo "🎯 Environment: ${{ github.event.client_payload.environment }}"
+          echo "📦 Application Type: ${{ github.event.client_payload.app_type }}"
+          echo "🔍 Commit SHA: ${{ github.event.client_payload.commit_sha }}"
+          echo "👤 Triggered by: ${{ github.event.client_payload.actor }}"
+          echo "🔗 Trigger Workflow: ${{ github.event.client_payload.trigger_workflow_url }}"
+          echo "📊 Trigger Run Number: #${{ github.event.client_payload.trigger_run_number }}"
+          echo "⏰ Deploy Started: $(date)"
+          echo "=================================="
+
       # Step 1: Checkout the code from the private repository.
-      - name: Checkout Private Repository
+      - name: "📥 Checkout Private Repository"
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.client_payload.repository }}
@@ -18,54 +38,111 @@ jobs:
           token: ${{ github.event.client_payload.repo_token }}
           path: my-private-app-code
 
-      - name: Log Dispatch Details
+      - name: "✅ Repository Checkout Complete"
         run: |
-          echo "Received dispatch event with payload:"
-          echo "  Commit SHA: ${{ github.sha }}"
-          echo "  Source Repo: ${{ github.event.client_payload.repository }}"
-          echo "  Environment: ${{ github.event.client_payload.environment }}"
-          echo "  Branch: ${{ github.ref_name }}"
-          echo "  Triggered by: ${{ github.event.client_payload.actor }}"
-          echo "  Application Type: ${{ github.event.client_payload.app_type }}"
+          echo "Repository checked out successfully!"
+          echo "Files in repository:"
+          ls -la my-private-app-code/
+          if [ -f "my-private-app-code/deploy.sh" ]; then
+            echo "✅ deploy.sh found"
+          else
+            echo "❌ deploy.sh not found!"
+            exit 1
+          fi
 
       # Step 2: Set up the correct runtime environment based on the application type.
-      - name: Set up Java 17
+      - name: "☕ Set up Java 17"
         if: github.event.client_payload.app_type == 'java'
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: "✅ Java Setup Complete"
+        if: github.event.client_payload.app_type == 'java'
+        run: |
+          echo "Java version:"
+          java -version
+          echo "Maven version:"
+          mvn -version || echo "Maven not available"
           
-      - name: Set up Node.js 21
+      - name: "🟢 Set up Node.js 21"
         if: github.event.client_payload.app_type == 'angular'
         uses: actions/setup-node@v4
         with:
           node-version: '21'
+
+      - name: "✅ Node.js Setup Complete"
+        if: github.event.client_payload.app_type == 'angular'
+        run: |
+          echo "Node.js version:"
+          node --version
+          echo "npm version:"
+          npm --version
       
       # Step 3: Setup SSH key from the payload.
-      - name: Setup SSH
+      - name: "🔐 Setup SSH"
         run: |
           mkdir -p ~/.ssh
           echo "${{ github.event.client_payload.ssh_private_key }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           # Add known hosts to prevent SSH host key verification issues
           ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+          echo "✅ SSH key configured successfully"
 
       # Step 4: Make deployment script executable and run it
-      - name: Make Deploy Script Executable
+      - name: "🔧 Prepare Deploy Script"
         run: |
           chmod +x my-private-app-code/deploy.sh
+          echo "✅ Deploy script made executable"
           
-      - name: Verify Script Permissions
+      - name: "🔍 Verify Script Permissions"
         run: |
+          echo "Deploy script permissions:"
           ls -la my-private-app-code/deploy.sh
-          
-      - name: Run Dynamic Deployment Script
+          echo "Script exists and is executable: ✅"
+
+      - name: "🚀 Execute Deployment"
         run: |
-          echo "Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
+          echo "::group::🚀 Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
+          echo "=================================="
+          echo "DEPLOYMENT EXECUTION"
+          echo "=================================="
           
+          # Run the deployment script with all parameters
           my-private-app-code/deploy.sh \
-            --app_type ${{ github.event.client_payload.app_type }} \
-            --environment ${{ github.event.client_payload.environment }} \
-            --commit ${{ github.event.client_payload.commit_sha }} \
-            --repo ${{ github.event.client_payload.repository }}
+            --app_type "${{ github.event.client_payload.app_type }}" \
+            --environment "${{ github.event.client_payload.environment }}" \
+            --commit "${{ github.event.client_payload.commit_sha }}" \
+            --repo "${{ github.event.client_payload.repository }}" \
+            --branch "${{ github.event.client_payload.branch }}" \
+            --actor "${{ github.event.client_payload.actor }}" \
+            --trigger_run "${{ github.event.client_payload.trigger_run_number }}"
+          
+          deploy_exit_code=$?
+          echo "::endgroup::"
+          
+          if [ $deploy_exit_code -eq 0 ]; then
+            echo "::notice title=✅ Deployment Successful::${{ github.event.client_payload.repository_name }} deployed to ${{ github.event.client_payload.environment }} successfully!"
+            echo "🎉 DEPLOYMENT COMPLETED SUCCESSFULLY!"
+          else
+            echo "::error title=❌ Deployment Failed::Deployment script exited with code $deploy_exit_code"
+            echo "💥 DEPLOYMENT FAILED!"
+            exit $deploy_exit_code
+          fi
+
+      - name: "📈 Deployment Summary"
+        if: always()
+        run: |
+          echo "=================================="
+          echo "📊 DEPLOYMENT SUMMARY"
+          echo "=================================="
+          echo "🏷️  Repository: ${{ github.event.client_payload.repository_name }}"
+          echo "🌿 Branch: ${{ github.event.client_payload.branch }}"
+          echo "🎯 Environment: ${{ github.event.client_payload.environment }}"
+          echo "📦 App Type: ${{ github.event.client_payload.app_type }}"
+          echo "🔍 Commit: ${{ github.event.client_payload.commit_sha }}"
+          echo "👤 Triggered by: ${{ github.event.client_payload.actor }}"
+          echo "⏰ Completed: $(date)"
+          echo "🔗 Trigger: ${{ github.event.client_payload.trigger_workflow_url }}"
+          echo "=================================="
