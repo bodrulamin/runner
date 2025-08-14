@@ -1,0 +1,66 @@
+name: Deploy Runner
+
+# This workflow is triggered by an API call from another repository.
+on:
+  repository_dispatch:
+    types: [deploy]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Step 1: Checkout the code from the private repository.
+      - name: Checkout Private Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.client_payload.repository }}
+          ref: ${{ github.event.client_payload.branch }}
+          # The repository token is now accessed directly from the payload.
+          token: ${{ github.event.client_payload.repo_token }}
+          path: my-private-app-code
+
+      - name: Log Dispatch Details
+        run: |
+          echo "Received dispatch event with payload:"
+          echo "  Commit SHA: ${{ github.sha }}"
+          echo "  Source Repo: ${{ github.event.client_payload.repository }}"
+          echo "  Environment: ${{ github.event.client_payload.environment }}"
+          echo "  Branch: ${{ github.ref_name }}"
+          echo "  Triggered by: ${{ github.event.client_payload.actor }}"
+          echo "  Application Type: ${{ github.event.client_payload.app_type }}"
+
+      # Step 2: Set up the correct runtime environment based on the application type.
+      - name: Set up Java 17
+        if: github.event.client_payload.app_type == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          
+      - name: Set up Node.js 21
+        if: github.event.client_payload.app_type == 'angular'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '21'
+      
+      # Step 3: Setup SSH key from the payload.
+      # 🚨 SECURITY WARNING: This method exposes the private key in the workflow logs.
+      # It is highly recommended to use a repository secret instead.
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ github.event.client_payload.ssh_private_key }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      # Step 4: Run Dynamic Deployment Script
+      - name: Run Dynamic Deployment Script
+        run: |
+          echo "Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
+          
+          # The conditional logic is now handled within the script itself.
+          my-private-app-code/scripts/deploy.sh \
+            --app_type ${{ github.event.client_payload.app_type }} \
+            --environment ${{ github.event.client_payload.environment }} \
+            --commit ${{ github.event.client_payload.commit_sha }} \
+            --repo ${{ github.event.client_payload.repository }}
