@@ -1,5 +1,4 @@
 name: Deploy Runner
-
 # This workflow is triggered by an API call from another repository.
 on:
   repository_dispatch:
@@ -16,7 +15,6 @@ jobs:
         with:
           repository: ${{ github.event.client_payload.repository }}
           ref: ${{ github.event.client_payload.branch }}
-          # The repository token is now accessed directly from the payload.
           token: ${{ github.event.client_payload.repo_token }}
           path: my-private-app-code
 
@@ -45,20 +43,27 @@ jobs:
           node-version: '21'
       
       # Step 3: Setup SSH key from the payload.
-      # 🚨 SECURITY WARNING: This method exposes the private key in the workflow logs.
-      # It is highly recommended to use a repository secret instead.
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ github.event.client_payload.ssh_private_key }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          # Add known hosts to prevent SSH host key verification issues
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-      # Step 4: Run Dynamic Deployment Script
+      # Step 4: Make deployment script executable and run it
+      - name: Make Deploy Script Executable
+        run: |
+          chmod +x my-private-app-code/deploy.sh
+          
+      - name: Verify Script Permissions
+        run: |
+          ls -la my-private-app-code/deploy.sh
+          
       - name: Run Dynamic Deployment Script
         run: |
           echo "Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
           
-          # The conditional logic is now handled within the script itself.
           my-private-app-code/deploy.sh \
             --app_type ${{ github.event.client_payload.app_type }} \
             --environment ${{ github.event.client_payload.environment }} \
