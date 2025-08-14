@@ -1,5 +1,5 @@
 name: Deploy Runner
-# This workflow is triggered by an API call from another repository.
+run-name: Deploying ${{ github.event.client_payload.app_type }} to ${{ github.event.client_payload.environment }}
 on:
   repository_dispatch:
     types: [deploy]
