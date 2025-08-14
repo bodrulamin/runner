@@ -1,5 +1,5 @@
-name: "⚡ Deploy: ${{ github.event.client_payload.repository_name }} → ${{ github.event.client_payload.environment }} | SHA: ${{ github.event.client_payload.commit_sha }}"
-
+name: Deploy Runner
+# This workflow is triggered by an API call from another repository.
 on:
   repository_dispatch:
     types: [deploy]
