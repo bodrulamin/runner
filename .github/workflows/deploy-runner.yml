@@ -55,21 +55,38 @@ jobs:
             flutter-${{ runner.os }}-
             flutter-
 
-      # NEW: Cache Android SDK and NDK for Flutter builds
-      - name: Cache Android SDK and NDK
+      # NEW: Cache only essential Android SDK components and NDK
+      - name: Cache Android SDK and NDK (Selective)
         if: github.event.client_payload.app_type == 'flutter'
         uses: actions/cache@v4
         with:
           path: |
-            /usr/local/lib/android/sdk
-            ~/.android
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/platform-tools
+            /usr/local/lib/android/sdk/platforms
+            /usr/local/lib/android/sdk/build-tools
+            /usr/local/lib/android/sdk/cmdline-tools
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: android-sdk-ndk-27-${{ runner.os }}-${{ hashFiles('my-private-app-code/android/app/build.gradle', 'my-private-app-code/android/build.gradle', 'my-private-app-code/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: android-selective-ndk-27-${{ runner.os }}-${{ hashFiles('my-private-app-code/android/app/build.gradle', 'my-private-app-code/android/build.gradle', 'my-private-app-code/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
-            android-sdk-ndk-27-${{ runner.os }}-
-            android-sdk-ndk-
-            android-sdk-
+            android-selective-ndk-27-${{ runner.os }}-
+            android-selective-ndk-
+            android-selective-
+
+      # NEW: Cache Gradle dependencies separately for faster saves/restores
+      - name: Cache Gradle Dependencies
+        if: github.event.client_payload.app_type == 'flutter'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-3
+            ~/.gradle/caches/build-cache-1
+          key: gradle-deps-${{ runner.os }}-${{ hashFiles('my-private-app-code/android/gradle/wrapper/gradle-wrapper.properties', 'my-private-app-code/android/app/build.gradle', 'my-private-app-code/android/build.gradle') }}
+          restore-keys: |
+            gradle-deps-${{ runner.os }}-
+            gradle-deps-
 
       # Step 4: Set up the correct runtime environment based on app type.
       - name: Set up Java 21
@@ -98,27 +115,21 @@ jobs:
           echo "/usr/local/lib/android/sdk/tools/bin" >> $GITHUB_PATH
           echo "/usr/local/lib/android/sdk/ndk/27.0.12077973" >> $GITHUB_PATH
 
-      # NEW: Pre-install NDK if not cached
+      # NEW: Pre-install NDK if not cached (optimized)
       - name: Pre-install Android NDK
         if: github.event.client_payload.app_type == 'flutter'
         run: |
           if [ ! -d "/usr/local/lib/android/sdk/ndk/27.0.12077973" ]; then
             echo "NDK not found in cache, installing..."
             sudo mkdir -p /usr/local/lib/android/sdk
-            cd /usr/local/lib/android/sdk
           
-            # Download and setup command line tools if not present
-            if [ ! -f "cmdline-tools/latest/bin/sdkmanager" ]; then
-              sudo wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-              sudo unzip -q commandlinetools-linux-11076708_latest.zip
-              sudo mkdir -p cmdline-tools/latest
-              sudo mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
-              sudo rm commandlinetools-linux-11076708_latest.zip
-            fi
-          
-            # Accept licenses and install NDK
-            yes | sudo cmdline-tools/latest/bin/sdkmanager --licenses
-            sudo cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973"
+            # Use faster NDK installation method
+            echo "Downloading NDK directly..."
+            cd /tmp
+            wget -q https://dl.google.com/android/repository/android-ndk-r27-linux.zip
+            sudo unzip -q android-ndk-r27-linux.zip -d /usr/local/lib/android/sdk/
+            sudo mv /usr/local/lib/android/sdk/android-ndk-r27 /usr/local/lib/android/sdk/ndk/27.0.12077973
+            rm android-ndk-r27-linux.zip
           
             echo "NDK installation completed"
           else
@@ -160,7 +171,28 @@ jobs:
         run: |
           ls -la my-private-app-code/deploy.sh
 
-      # Step 8: Run the dynamic deployment script
+      # Step 8: Clean up unnecessary files before caching (if Flutter)
+      - name: Clean up cache directories
+        if: github.event.client_payload.app_type == 'flutter'
+        run: |
+          echo "Cleaning up unnecessary files to reduce cache size..."
+          
+          # Remove large unnecessary files from Gradle cache
+          find ~/.gradle/caches -name "*.log" -delete 2>/dev/null || true
+          find ~/.gradle/caches -name "*.tmp" -delete 2>/dev/null || true
+          find ~/.gradle/caches -name "*-sources.jar" -delete 2>/dev/null || true
+          find ~/.gradle/caches -name "*-javadoc.jar" -delete 2>/dev/null || true
+          
+          # Remove Android SDK emulator images and docs (not needed for builds)
+          sudo rm -rf /usr/local/lib/android/sdk/emulator 2>/dev/null || true
+          sudo rm -rf /usr/local/lib/android/sdk/docs 2>/dev/null || true
+          sudo rm -rf /usr/local/lib/android/sdk/samples 2>/dev/null || true
+          sudo rm -rf /usr/local/lib/android/sdk/sources 2>/dev/null || true
+          sudo rm -rf /usr/local/lib/android/sdk/system-images 2>/dev/null || true
+          
+          echo "Cache cleanup completed"
+
+      # Step 9: Run the dynamic deployment script
       - name: Run Dynamic Deployment Script
         run: |
           echo "Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
