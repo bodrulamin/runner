@@ -55,6 +55,21 @@ jobs:
             flutter-${{ runner.os }}-
             flutter-
 
+      # NEW: Cache Android SDK and NDK for Flutter builds
+      - name: Cache Android SDK and NDK
+        if: github.event.client_payload.app_type == 'flutter'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}
+            ${{ env.ANDROID_SDK_ROOT }}
+            ~/.android/cache
+            ~/.android/avd/*.avd/cache
+          key: android-sdk-ndk-${{ runner.os }}-${{ hashFiles('my-private-app-code/android/app/build.gradle', 'my-private-app-code/android/build.gradle') }}
+          restore-keys: |
+            android-sdk-ndk-${{ runner.os }}-
+            android-sdk-
+
       # Step 4: Set up the correct runtime environment based on app type.
       - name: Set up Java 21
         if: github.event.client_payload.app_type == 'java'
@@ -77,6 +92,15 @@ jobs:
           flutter-version: '3.35.2'
           channel: 'stable'
           cache: true  # ✅ Built-in Flutter cache
+
+      # NEW: Setup Android SDK and NDK for Flutter (if not cached)
+      - name: Setup Android SDK and NDK
+        if: github.event.client_payload.app_type == 'flutter'
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          ndk-version: 27.0.12077973
+          cmake-version: 3.22.1
 
       # Step 5: Setup SSH for deployment
       - name: Setup SSH
