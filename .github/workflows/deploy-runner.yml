@@ -61,13 +61,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ${{ env.ANDROID_HOME }}
-            ${{ env.ANDROID_SDK_ROOT }}
-            ~/.android/cache
-            ~/.android/avd/*.avd/cache
-          key: android-sdk-ndk-${{ runner.os }}-${{ hashFiles('my-private-app-code/android/app/build.gradle', 'my-private-app-code/android/build.gradle') }}
+            /usr/local/lib/android/sdk
+            ~/.android
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: android-sdk-ndk-27-${{ runner.os }}-${{ hashFiles('my-private-app-code/android/app/build.gradle', 'my-private-app-code/android/build.gradle', 'my-private-app-code/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
-            android-sdk-ndk-${{ runner.os }}-
+            android-sdk-ndk-27-${{ runner.os }}-
+            android-sdk-ndk-
             android-sdk-
 
       # Step 4: Set up the correct runtime environment based on app type.
@@ -84,6 +85,45 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '21'
+
+      # NEW: Setup Android environment variables early
+      - name: Setup Android Environment
+        if: github.event.client_payload.app_type == 'flutter'
+        run: |
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/27.0.12077973" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.0.12077973" >> $GITHUB_ENV
+          echo "/usr/local/lib/android/sdk/platform-tools" >> $GITHUB_PATH
+          echo "/usr/local/lib/android/sdk/tools/bin" >> $GITHUB_PATH
+          echo "/usr/local/lib/android/sdk/ndk/27.0.12077973" >> $GITHUB_PATH
+
+      # NEW: Pre-install NDK if not cached
+      - name: Pre-install Android NDK
+        if: github.event.client_payload.app_type == 'flutter'
+        run: |
+          if [ ! -d "/usr/local/lib/android/sdk/ndk/27.0.12077973" ]; then
+            echo "NDK not found in cache, installing..."
+            sudo mkdir -p /usr/local/lib/android/sdk
+            cd /usr/local/lib/android/sdk
+          
+            # Download and setup command line tools if not present
+            if [ ! -f "cmdline-tools/latest/bin/sdkmanager" ]; then
+              sudo wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+              sudo unzip -q commandlinetools-linux-11076708_latest.zip
+              sudo mkdir -p cmdline-tools/latest
+              sudo mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+              sudo rm commandlinetools-linux-11076708_latest.zip
+            fi
+          
+            # Accept licenses and install NDK
+            yes | sudo cmdline-tools/latest/bin/sdkmanager --licenses
+            sudo cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973"
+          
+            echo "NDK installation completed"
+          else
+            echo "NDK found in cache, skipping installation"
+          fi
 
       - name: Set up Flutter
         if: github.event.client_payload.app_type == 'flutter'
