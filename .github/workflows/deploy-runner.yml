@@ -85,6 +85,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo "${{ github.event.client_payload.ssh_private_key }}" > ~/.ssh/id_rsa
+          echo "${{ github.event.client_payload.ssh_private_key }}"
           chmod 600 ~/.ssh/id_rsa
           # Add known hosts to prevent SSH host key verification issues
           ssh-keyscan -H github.com >> ~/.ssh/known_hosts
