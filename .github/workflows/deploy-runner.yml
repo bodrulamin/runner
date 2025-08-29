@@ -46,7 +46,7 @@ jobs:
         if: github.event.client_payload.app_type == 'flutter'
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.35.2'
           channel: 'stable'
       
       # Step 3: Setup SSH key from the payload.
