@@ -27,7 +27,7 @@ jobs:
           echo "  Source Repo: ${{ github.event.client_payload.repository }}"
           echo "  Environment: ${{ github.event.client_payload.environment }}"
           echo "  Branch: ${{ github.ref_name }}"
-          echo "  Triggered by: ${{ github.event.client_payload.actor }}"
+          echo "  Triggered by: ${{ github.event.client_payload.pipeline_number }}"
           echo "  Application Type: ${{ github.event.client_payload.app_type }}"
 
       # Step 3: Cache Dependencies (AFTER checkout)
@@ -101,8 +101,4 @@ jobs:
         run: |
           echo "Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
           cd my-private-app-code
-          ./deploy.sh \
-            --app_type ${{ github.event.client_payload.app_type }} \
-            --environment ${{ github.event.client_payload.environment }} \
-            --commit ${{ github.event.client_payload.commit_sha }} \
-            --repo ${{ github.event.client_payload.repository }}
+          ./deploy.sh --payload '${{ toJson(github.event.client_payload) }}'
