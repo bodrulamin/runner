@@ -28,7 +28,37 @@ jobs:
           echo "  Triggered by: ${{ github.event.client_payload.actor }}"
           echo "  Application Type: ${{ github.event.client_payload.app_type }}"
 
-      # Step 2: Set up the correct runtime environment based on the application type.
+      # Step 2: Add OS-agnostic caching
+      - name: Cache Java dependencies
+        if: github.event.client_payload.app_type == 'java'
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: java-deps-${{ hashFiles('my-private-app-code/pom.xml') }}
+          restore-keys: |
+            java-deps-
+
+      - name: Cache Node.js dependencies
+        if: github.event.client_payload.app_type == 'angular'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            my-private-app-code/node_modules
+          key: node-deps-${{ hashFiles('my-private-app-code/package-lock.json') }}
+          restore-keys: |
+            node-deps-
+
+      - name: Cache Flutter dependencies
+        if: github.event.client_payload.app_type == 'flutter'
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: flutter-deps-${{ hashFiles('my-private-app-code/pubspec.lock') }}
+          restore-keys: |
+            flutter-deps-
+
+      # Step 3: Set up the correct runtime environment based on the application type.
       - name: Set up Java 17
         if: github.event.client_payload.app_type == 'java'
         uses: actions/setup-java@v4
@@ -48,8 +78,9 @@ jobs:
         with:
           flutter-version: '3.35.2'
           channel: 'stable'
+          cache: true
 
-      # Step 3: Setup SSH key from the payload.
+      # Step 4: Setup SSH key from the payload.
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -58,7 +89,7 @@ jobs:
           # Add known hosts to prevent SSH host key verification issues
           ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-      # Step 4: Make deployment script executable and run it
+      # Step 5: Make deployment script executable and run it
       - name: Make Deploy Script Executable
         run: |
           chmod +x my-private-app-code/deploy.sh
