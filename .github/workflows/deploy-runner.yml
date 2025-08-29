@@ -14,72 +14,33 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.client_payload.repository }}
-          ref: ${{ github.event.client_payload.branch || 'main' }}
+          ref: ${{ github.event.client_payload.branch }}
           token: ${{ github.event.client_payload.repo_token }}
           path: my-private-app-code
 
       - name: Log Dispatch Details
         run: |
           echo "Received dispatch event with payload:"
-          echo "  Commit SHA: ${{ github.event.client_payload.commit_sha || github.sha }}"
+          echo "  Commit SHA: ${{ github.sha }}"
           echo "  Source Repo: ${{ github.event.client_payload.repository }}"
           echo "  Environment: ${{ github.event.client_payload.environment }}"
-          echo "  Branch: ${{ github.event.client_payload.branch || 'main' }}"
-          echo "  Triggered by: ${{ github.event.client_payload.actor || 'unknown' }}"
+          echo "  Branch: ${{ github.ref_name }}"
+          echo "  Triggered by: ${{ github.event.client_payload.actor }}"
           echo "  Application Type: ${{ github.event.client_payload.app_type }}"
-          echo "  Working directory: $(pwd)"
-          ls -la my-private-app-code/
 
-      # Step 2: Cache dependencies based on app type
-      - name: Cache Java dependencies
-        if: github.event.client_payload.app_type == 'java'
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.m2/repository
-            **/target
-          key: java-${{ runner.os }}-${{ hashFiles('my-private-app-code/pom.xml') }}
-          restore-keys: |
-            java-${{ runner.os }}-
-
-      - name: Cache Node.js dependencies
-        if: github.event.client_payload.app_type == 'angular'
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.npm
-            my-private-app-code/node_modules
-          key: node-${{ runner.os }}-${{ hashFiles('my-private-app-code/package-lock.json') }}-${{ hashFiles('my-private-app-code/package.json') }}
-          restore-keys: |
-            node-${{ runner.os }}-
-
-      - name: Cache Flutter dependencies
-        if: github.event.client_payload.app_type == 'flutter'
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.pub-cache
-            /opt/hostedtoolcache/flutter
-          key: flutter-${{ runner.os }}-${{ hashFiles('my-private-app-code/pubspec.lock') }}
-          restore-keys: |
-            flutter-${{ runner.os }}-
-
-      # Step 3: Set up the correct runtime environment
+      # Step 2: Set up the correct runtime environment based on the application type.
       - name: Set up Java 17
         if: github.event.client_payload.app_type == 'java'
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Set up Node.js 21
         if: github.event.client_payload.app_type == 'angular'
         uses: actions/setup-node@v4
         with:
           node-version: '21'
-          cache: 'npm'
-          cache-dependency-path: my-private-app-code/package-lock.json
 
       - name: Set up Flutter
         if: github.event.client_payload.app_type == 'flutter'
@@ -87,114 +48,31 @@ jobs:
         with:
           flutter-version: '3.35.2'
           channel: 'stable'
-          cache: true
-          cache-key: flutter-packages-${{ hashFiles('my-private-app-code/pubspec.lock') }}
 
-      # Step 4: Install dependencies based on app type
-      - name: Install Java dependencies
-        if: github.event.client_payload.app_type == 'java'
-        working-directory: my-private-app-code
-        run: mvn dependency:go-offline -B
-
-      - name: Install Node.js dependencies
-        if: github.event.client_payload.app_type == 'angular'
-        working-directory: my-private-app-code
-        run: npm ci
-
-      - name: Install Flutter dependencies
-        if: github.event.client_payload.app_type == 'flutter'
-        working-directory: my-private-app-code
-        run: flutter pub get
-
-      # Step 5: Setup SSH key securely
+      # Step 3: Setup SSH key from the payload.
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          # Use a more secure way to handle the SSH key
-          echo "${{ github.event.client_payload.ssh_private_key }}" | tr -d '\r' > ~/.ssh/id_rsa
+          echo "${{ github.event.client_payload.ssh_private_key }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
-          # Add known hosts for common services
-          ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null
-          ssh-keyscan -H ${{ github.event.client_payload.ssh_host || 'example.com' }} >> ~/.ssh/known_hosts 2>/dev/null || true
-          
-          # Test SSH connection if host is provided
-          if [ -n "${{ github.event.client_payload.ssh_host }}" ]; then
-            ssh -o BatchMode=yes -o ConnectTimeout=5 ${{ github.event.client_payload.ssh_user }}@${{ github.event.client_payload.ssh_host }} echo "SSH connection successful" || true
-          fi
+          # Add known hosts to prevent SSH host key verification issues
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
 
-      # Step 6: Make deployment script executable and run it
-      - name: Verify and Prepare Deployment
+      # Step 4: Make deployment script executable and run it
+      - name: Make Deploy Script Executable
         run: |
-          echo "Checking deployment script..."
-          if [ -f "my-private-app-code/deploy.sh" ]; then
-            chmod +x my-private-app-code/deploy.sh
-            echo "Deployment script found and made executable"
-          else
-            echo "Warning: deploy.sh not found in the repository"
-            ls -la my-private-app-code/
-          fi
+          chmod +x my-private-app-code/deploy.sh
+
+      - name: Verify Script Permissions
+        run: |
+          ls -la my-private-app-code/deploy.sh
 
       - name: Run Dynamic Deployment Script
-        env:
-          APP_TYPE: ${{ github.event.client_payload.app_type }}
-          ENVIRONMENT: ${{ github.event.client_payload.environment }}
-          COMMIT_SHA: ${{ github.event.client_payload.commit_sha || github.sha }}
-          REPOSITORY: ${{ github.event.client_payload.repository }}
-          SSH_HOST: ${{ github.event.client_payload.ssh_host }}
-          SSH_USER: ${{ github.event.client_payload.ssh_user }}
         run: |
-          echo "Starting deployment for $APP_TYPE application to $ENVIRONMENT..."
+          echo "Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
           
-          if [ -f "my-private-app-code/deploy.sh" ]; then
-            echo "Executing custom deployment script..."
-            cd my-private-app-code
-            ./deploy.sh \
-              --app_type "$APP_TYPE" \
-              --environment "$ENVIRONMENT" \
-              --commit "$COMMIT_SHA" \
-              --repo "$REPOSITORY" \
-              --ssh_host "$SSH_HOST" \
-              --ssh_user "$SSH_USER"
-          else
-            echo "No custom deployment script found. Using default deployment logic..."
-          
-            # Default deployment logic based on app type
-            case "$APP_TYPE" in
-              "java")
-                echo "Deploying Java application..."
-                # Add your Java deployment commands here
-                ;;
-              "angular")
-                echo "Deploying Angular application..."
-                # Add your Angular deployment commands here
-                ;;
-              "flutter")
-                echo "Deploying Flutter application..."
-                # Add your Flutter deployment commands here
-                ;;
-              *)
-                echo "Unknown application type: $APP_TYPE"
-                exit 1
-                ;;
-            esac
-          fi
-
-      # Step 7: Cleanup sensitive data
-      - name: Cleanup SSH keys
-        if: always()
-        run: |
-          rm -f ~/.ssh/id_rsa
-          echo "SSH keys cleaned up"
-
-      # Step 8: Deployment status
-      - name: Report Deployment Status
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Deployment completed successfully"
-          else
-            echo "❌ Deployment failed"
-            exit 1
-          fi
+          my-private-app-code/deploy.sh \
+            --app_type ${{ github.event.client_payload.app_type }} \
+            --environment ${{ github.event.client_payload.environment }} \
+            --commit ${{ github.event.client_payload.commit_sha }} \
+            --repo ${{ github.event.client_payload.repository }}
