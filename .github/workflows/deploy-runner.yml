@@ -101,8 +101,8 @@ jobs:
       - name: Run Dynamic Deployment Script
         run: |
           echo "Starting deployment for ${{ github.event.client_payload.app_type }} application to ${{ github.event.client_payload.environment }}..."
-          
-          my-private-app-code/deploy.sh \
+          cd my-private-app-code
+          ./deploy.sh \
             --app_type ${{ github.event.client_payload.app_type }} \
             --environment ${{ github.event.client_payload.environment }} \
             --commit ${{ github.event.client_payload.commit_sha }} \
