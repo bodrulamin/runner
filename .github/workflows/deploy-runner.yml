@@ -1,5 +1,5 @@
 name: Deploy Runner
-run-name: Deploying ${{ github.event.client_payload.repository }} to ${{ github.event.client_payload.environment }}
+run-name: 🚀 ${{ github.event.client_payload.environment }} - ${{ github.event.client_payload.repository }}
 
 on:
   repository_dispatch:
