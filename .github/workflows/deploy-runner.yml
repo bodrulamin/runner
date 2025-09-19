@@ -70,6 +70,19 @@ jobs:
         with:
           node-version: '21'
 
+      # Step 4.5: Install dependencies and build Angular project
+      - name: Install Angular dependencies
+        if: github.event.client_payload.app_type == 'angular'
+        run: |
+          cd my-private-app-code
+          npm ci
+
+      - name: Build Angular project
+        if: github.event.client_payload.app_type == 'angular'
+        run: |
+          cd my-private-app-code
+          npm run build -- --configuration=production
+
       - name: Set up Flutter
         if: github.event.client_payload.app_type == 'flutter'
         uses: subosito/flutter-action@v2
