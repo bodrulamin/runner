@@ -64,11 +64,11 @@ jobs:
           distribution: 'temurin'
           cache: maven  # ✅ Automatic Maven dependency caching
 
-      - name: Set up Node.js 21
+      - name: Set up Node.js 22
         if: github.event.client_payload.app_type == 'angular'
         uses: actions/setup-node@v4
         with:
-          node-version: '21'
+          node-version: '22'
 
       # Step 4.5: Install dependencies and build Angular project
       - name: Install Angular dependencies
