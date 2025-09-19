@@ -56,11 +56,11 @@ jobs:
             flutter-
 
       # Step 4: Set up the correct runtime environment based on app type.
-      - name: Set up Java 21
+      - name: Set up Java 25
         if: github.event.client_payload.app_type == 'java'
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: maven  # ✅ Automatic Maven dependency caching
 
