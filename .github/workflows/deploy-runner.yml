@@ -19,19 +19,19 @@ jobs:
           token: ${{ github.event.client_payload.repo_token }}
           path: my-private-app-code
 
-      # Step 2: Log Dispatch Details
-#      - name: Log Dispatch Details
-#        run: |
-#          echo "Received dispatch event with payload:"
-#          echo "  Commit SHA: ${{ github.sha }}"
-#          echo "  Source Repo: ${{ github.event.client_payload.repository }}"
-#          echo "  Environment: ${{ github.event.client_payload.environment }}"
-#          echo "  Branch: ${{ github.ref_name }}"
-#          echo "  Triggered by: ${{ github.event.client_payload.pipeline_number }}"
-#          echo "  Application Type: ${{ github.event.client_payload.app_type }}"
+#       Step 2: Log Dispatch Details
+      - name: Log Dispatch Details
+        run: |
+          echo "Received dispatch event with payload:"
+          echo "  Commit SHA: ${{ github.sha }}"
+          echo "  Source Repo: ${{ github.event.client_payload.repository }}"
+          echo "  Environment: ${{ github.event.client_payload.environment }}"
+          echo "  Branch: ${{ github.ref_name }}"
+          echo "  Triggered by: ${{ github.event.client_payload.pipeline_number }}"
+          echo "  Application Type: ${{ github.event.client_payload.app_type }}"
 
-      # Step 3: Cache Dependencies (AFTER checkout)
-      # ✅ Java uses built-in Maven cache from setup-java@v4
+#       Step 3: Cache Dependencies (AFTER checkout)
+#       ✅ Java uses built-in Maven cache from setup-java@v4
 
       - name: Cache Node.js dependencies
         if: github.event.client_payload.app_type == 'angular'
