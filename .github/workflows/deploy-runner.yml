@@ -64,6 +64,17 @@ jobs:
           distribution: 'temurin'
           cache: maven  # ✅ Automatic Maven dependency caching
 
+      - name: Cache Maven dependencies
+        if: github.event.client_payload.app_type == 'java'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            my-private-app-code/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('my-private-app-code/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
       - name: Set up Node.js 22
         if: github.event.client_payload.app_type == 'angular'
         uses: actions/setup-node@v4
