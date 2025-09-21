@@ -10,7 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code from the private repository.
+      # Step 1: Cache Android SDK
+      - name: Cache Android SDK
+        if: github.event.client_payload.app_type == 'flutter'
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk
+            /usr/local/lib/android/sdk/platforms
+            /usr/local/lib/android/sdk/licenses
+          key: android-sdk-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            android-sdk-${{ runner.os }}-
+
+      # Step 2: Checkout the code from the private repository.
       - name: Checkout Private Repository
         uses: actions/checkout@v4
         with:
