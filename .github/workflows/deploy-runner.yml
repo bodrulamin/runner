@@ -37,7 +37,7 @@ jobs:
       - name: Log Dispatch Details
         run: |
           echo "Received dispatch event with payload:"
-          echo "  Commit SHA: ${{ github.sha }}"
+          echo "  Commit SHA: ${{ github.event.client_payload.commit_sha }}"
           echo "  Source Repo: ${{ github.event.client_payload.repository }}"
           echo "  Environment: ${{ github.event.client_payload.environment }}"
           echo "  Branch: ${{ github.ref_name }}"
