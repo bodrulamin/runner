@@ -1,5 +1,5 @@
 name: Deploy Runner
-run-name: 🚀 ${{ github.event.client_payload.environment }} - ${{ github.event.client_payload.repository }}
+run-name: 🚀 ${{ github.event.client_payload.environment }} - ${{ github.event.client_payload.repository }} - ${{ github.event.client_payload.commit_sha }}
 
 on:
   repository_dispatch:
